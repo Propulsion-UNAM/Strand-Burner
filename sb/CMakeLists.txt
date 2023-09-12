@@ -1,25 +1,18 @@
-cmake_minimum_required(VERSION 3.13)
+if (TARGET tinyusb_device)
+    add_executable(sb
+            main.c
+            )
 
-set(PICO_SDK_PATH $ENV{PICO_SDK_PATH})
+    # pull in common dependencies
+    target_link_libraries(sb pico_stdlib)
 
-# initialize the SDK based on PICO_SDK_PATH
-# note: this must happen before project()
-include(pico_sdk_import.cmake)
+    # enable usb output, disable uart output
+    pico_enable_stdio_usb(sb 1)
+    pico_enable_stdio_uart(sb 0)
 
-project(strand_burner
-        LANGUAGES C ASM CXX)
+    # create map/bin/hex/uf2 file etc.
+    pico_add_extra_outputs(sb)
 
-# initialize the Raspberry Pi Pico SDK
-pico_sdk_init()
-
-# rest of the project
-
-add_executable(strand_burner main.c)
-
-target_link_libraries(strand_burner pico_stdlib)
-
-pico_enable_stdio_uart(strand_burner 1)
-pico_enable_stdio_usb(strand_burner 0)
-
-pico_add_extra_outputs(strand_burner)
-
+elseif(PICO_ON_DEVICE)
+    message(WARNING "not building sb because TinyUSB submodule is not initialized in the SDK")
+endif()
