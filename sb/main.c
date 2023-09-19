@@ -5,6 +5,7 @@
 #include "hardware/adc.h"
 #include "pico/multicore.h"
 #include "hardware/flash.h"
+#include "inttypes.h"
 
 #define TIMER_INTERVAL_US 1000000
 #define START_PIN 2
@@ -17,13 +18,15 @@
 uint32_t start_time = 0;
 uint32_t elapsed_time = 0;
 
-void start_timer_interrupt_handler(uint gpio, uint32_t events) {
+void start_timer_interrupt_handler() {
     start_time = time_us_32();  // almacenamos el tiempo actual
+    printf("Interrupt");
 }
 
-void stop_timer_interrupt_handler(uint gpio, uint32_t events) {
+void stop_timer_interrupt_handler() {
     if (start_time != 0) {
         elapsed_time = time_us_32() - start_time;
+        printf("FIN");
         printf("Elapsed Time: " + elapsed_time);
         start_time = 0;  // Restablecer para el próximo ciclo
     }
@@ -69,7 +72,7 @@ void core1_entry() {
         uint16_t adc_value = adc_read();
         uint16_t voltage = adc_value * conversion_factor;
         uint32_t pressure = map(voltage, 0.5, 3.3, 0, 1600);
-        printf(adc_value);
+        //printf("%" PRIu16 "\n", adc_value);
     }
     
 }
@@ -77,20 +80,25 @@ void core1_entry() {
 int main() {
 
     stdio_init_all();
-    sleep_ms(2000);
 
-    gpio_set_irq_enabled_with_callback(START_PIN, GPIO_IRQ_EDGE_RISE, true, &start_timer_interrupt_handler);
+    gpio_init(START_PIN);
+    gpio_init(STOP_PIN);
     gpio_set_dir(START_PIN, GPIO_IN);
-    gpio_pull_up(START_PIN);
-
-    gpio_set_irq_enabled_with_callback(STOP_PIN, GPIO_IRQ_EDGE_RISE, true, &stop_timer_interrupt_handler);
     gpio_set_dir(STOP_PIN, GPIO_IN);
-    gpio_pull_up(STOP_PIN);
+    gpio_set_irq_enabled_with_callback(START_PIN, GPIO_IRQ_EDGE_RISE, true, &start_timer_interrupt_handler);
+    gpio_set_irq_enabled_with_callback(STOP_PIN, GPIO_IRQ_EDGE_RISE, true, &stop_timer_interrupt_handler);
 
     // Borramos sector a usar
     //flash_range_erase(DATA_FLASH_START, );
+    //multicore_launch_core1(core1_entry);
 
     while (true) {
-    
+        tight_loop_contents();
+        bool value2 = gpio_get(START_PIN);
+        bool value3 = gpio_get(STOP_PIN);
+
+        printf("Valor gpio 2: %s \n", value2 ? "HIGH" : "LOW");
+        printf("Valor gpio 3: %s \n", value3 ? "HIGH" : "LOW");
+        printf("%" PRIu32 "\n", elapsed_time);
     }
 }
