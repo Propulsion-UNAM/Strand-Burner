@@ -16,21 +16,28 @@
 #define BUFFER_SIZE 4096 // debe ser múltiplo de 256 bytes
 
 uint32_t start_time = 0;
-uint32_t elapsed_time = 0;
+uint32_t elapsed_time = 0; //microsegundos
 
-void start_timer_interrupt_handler() {
-    start_time = time_us_32();  // almacenamos el tiempo actual
-    printf("Interrupt");
-}
-
-void stop_timer_interrupt_handler() {
-    if (start_time != 0) {
-        elapsed_time = time_us_32() - start_time;
-        printf("FIN");
-        printf("Elapsed Time: " + elapsed_time);
-        start_time = 0;  // Restablecer para el próximo ciclo
+void gpio_callback(uint gpio, uint32_t events) {
+    if (gpio == START_PIN) {
+        start_time = time_us_32();  // almacenamos el tiempo actual
+    }
+    if (gpio == STOP_PIN) {
+        if (start_time != 0) {
+            elapsed_time = time_us_32() - start_time;
+        }
+        
     }
 }
+
+//void stop_timer_interrupt_handler() {
+//    if (start_time != 0) {
+//        elapsed_time = time_us_32() - start_time;
+//        printf("FIN");
+//      printf("Elapsed Time: " + elapsed_time);
+//        start_time = 0;  // Restablecer para el próximo ciclo
+//    }
+//}
 
 //quizá cambiar por floats
 uint32_t map(uint32_t au32_IN, uint32_t au32_INmin, uint32_t au32_INmax, uint32_t au32_OUTmin, uint32_t au32_OUTmax) {
@@ -72,7 +79,7 @@ void core1_entry() {
         uint16_t adc_value = adc_read();
         uint16_t voltage = adc_value * conversion_factor;
         uint32_t pressure = map(voltage, 0.5, 3.3, 0, 1600);
-        //printf("%" PRIu16 "\n", adc_value);
+        printf("Presion: %" PRIu16 "\n", adc_value);
     }
     
 }
@@ -85,20 +92,18 @@ int main() {
     gpio_init(STOP_PIN);
     gpio_set_dir(START_PIN, GPIO_IN);
     gpio_set_dir(STOP_PIN, GPIO_IN);
-    gpio_set_irq_enabled_with_callback(START_PIN, GPIO_IRQ_EDGE_RISE, true, &start_timer_interrupt_handler);
-    gpio_set_irq_enabled_with_callback(STOP_PIN, GPIO_IRQ_EDGE_RISE, true, &stop_timer_interrupt_handler);
+    gpio_set_irq_enabled_with_callback(START_PIN, GPIO_IRQ_EDGE_RISE, true, &gpio_callback);
+    gpio_set_irq_enabled(STOP_PIN, GPIO_IRQ_EDGE_RISE, true);
 
     // Borramos sector a usar
     //flash_range_erase(DATA_FLASH_START, );
-    //multicore_launch_core1(core1_entry);
+    multicore_launch_core1(core1_entry);
 
     while (true) {
         tight_loop_contents();
         bool value2 = gpio_get(START_PIN);
         bool value3 = gpio_get(STOP_PIN);
 
-        printf("Valor gpio 2: %s \n", value2 ? "HIGH" : "LOW");
-        printf("Valor gpio 3: %s \n", value3 ? "HIGH" : "LOW");
-        printf("%" PRIu32 "\n", elapsed_time);
+        printf("Inicio, Total: %u, %u \n", start_time, elapsed_time);
     }
 }
